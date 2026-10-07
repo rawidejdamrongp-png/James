@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>โซ่คำ — Word Chain Domino</title>
+<style>
+  :root{
+    --bg:#161C26;
+    --bg-deep:#0F141C;
+    --tile:#F2E9D8;
+    --tile-ink:#241C14;
+    --gold:#C9A227;
+    --gold-soft:#E0C170;
+    --green:#4C8B6B;
+    --coral:#C1502E;
+    --muted:#8B96A5;
+    --line: rgba(242,233,216,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(201,162,39,0.10), transparent 45%),
+      radial-gradient(ellipse at 100% 110%, rgba(76,139,107,0.08), transparent 40%),
+      var(--bg);
+    color:var(--tile);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai UI", "Leelawadee UI", "Sarabun", sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:28px 16px 60px;
+  }
+  .wrap{ width:100%; max-width:720px; }
+
+  /* Header */
+  .eyebrow{
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size:11px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--gold-soft);
+    margin:0 0 6px;
+  }
+  h1{
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight:700;
+    font-size:34px;
+    letter-spacing:-0.01em;
+    margin:0 0 4px;
+  }
+  .sub{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 22px;
+    line-height:1.6;
+  }
+
+  /* Scoreboard */
+  .board{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    background: var(--bg-deep);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 18px;
+    margin-bottom:18px;
+  }
+  .stat{ text-align:left; position:relative; }
+  .stat .label{
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:2px;
+  }
+  .stat .value{
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size:22px; font-weight:600; color:var(--tile);
+    transition: transform 0.15s ease;
+  }
+  .stat .value.bump{ transform: scale(1.18); color: var(--gold-soft); }
+
+  .scorePop{
+    position:absolute;
+    left:50%;
+    top:-2px;
+    transform: translate(-50%, 0);
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-weight:700;
+    font-size:16px;
+    color: var(--green);
+    pointer-events:none;
+    white-space:nowrap;
+    animation: scorePopFloat 0.9s ease-out forwards;
+  }
+  @keyframes scorePopFloat{
+    0%{ opacity:0; transform: translate(-50%, 6px) scale(0.8); }
+    15%{ opacity:1; transform: translate(-50%, -6px) scale(1.15); }
+    75%{ opacity:1; transform: translate(-50%, -26px) scale(1); }
+    100%{ opacity:0; transform: translate(-50%, -38px) scale(1); }
+  }
+
+  /* Timer bar */
+  .timerTrack{
+    height:6px; border-radius:4px; background: var(--bg-deep);
+    border:1px solid var(--line);
+    overflow:hidden; margin-bottom:20px;
+  }
+  .timerFill{
+    height:100%; width:100%;
+    background: linear-gradient(90deg, var(--green), var(--gold));
+    transition: width 0.25s linear, background 0.4s;
+    border-radius:4px;
+  }
+
+
+  /* Multiplayer room flow */
+  .mpPanel{background:var(--bg-deep);border:1px solid var(--line);border-radius:14px;padding:20px;margin:16px 0;}
+  .mpGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .mpField{display:flex;flex-direction:column;gap:7px;margin:12px 0;text-align:left;}
+  .mpField label{font-size:12px;color:var(--muted);}
+  .mpField input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--tile);padding:12px;font:inherit;}
+  .roomCode{font:800 30px ui-monospace,monospace;letter-spacing:.2em;color:var(--gold-soft);text-align:center;padding:14px;border:1px dashed var(--gold);border-radius:10px;margin:12px 0;}
+  .mpNote{font-size:12px;line-height:1.6;color:var(--muted);}
+  .mpActions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .mpPlayer{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border:1px solid var(--line);border-radius:9px;margin:8px 0;}
+  @media(max-width:560px){.mpGrid{grid-template-columns:1fr}.roomCode{font-size:24px}}
+
+  /* Play type select cards */
+  .playTypeCards{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    margin:22px 0 8px;
+  }
+  @media(max-width:560px){
+    .playTypeCards{grid-template-columns:1fr;}
+  }
+  .playTypeCard{
+    all:unset;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:190px;
+    padding:24px;
+    box-sizing:border-box;
+    text-align:center;
+    background:var(--bg-deep);
+    border:1.5px solid var(--line);
+    border-radius:14px;
+    box-shadow:0 8px 20px rgba(0,0,0,.25);
+    transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+  }
+  .playTypeCard:hover,.playTypeCard:focus-visible{
+    transform:translateY(-4px);
+    border-color:var(--gold);
+    box-shadow:0 14px 30px rgba(0,0,0,.4);
+  }
+  .playTypeIcon{
+    width:58px;height:58px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:50%;
+    margin-bottom:13px;
+    color:var(--gold-soft);
+    background:rgba(201,162,39,.10);
+    border:1px solid rgba(224,193,112,.35);
+    font-size:28px;
+  }
+  .playTypeCard h3{
+    font-family:Georgia,serif;
+    font-size:20px;
+    color:var(--tile);
+    margin:0 0 7px;
+  }
+  .playTypeCard p{
+    margin:0;
+    max-width:290px;
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.55;
+  }
+  .playTypeAction{
+    margin-top:14px;
+    font:700 12px ui-monospace,"SFMono-Regular",Consolas,monospace;
+    color:var(--gold);
+  }
+
+  /* Mode select cards */
+  .modeIntro{ margin: 4px 0 18px; }
+  .modeIntro .eyebrow{ margin-bottom:8px; }
+  .modeIntro h2{
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight:700; font-size:24px; margin:0 0 6px;
+  }
+  .modeIntro p{ color:var(--muted); font-size:14px; margin:0; line-height:1.6; }
+
+  .modeCards{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:16px;
+    margin: 22px 0 8px;
+  }
+  @media (max-width:560px){
+    .modeCards{ grid-template-columns: 1fr; }
+  }
+  .modeCard{
+    all:unset;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    background: var(--bg-deep);
+    border:1.5px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  }
+  .modeCard:hover, .modeCard:focus-visible{
+    transform: translateY(-4px);
+    border-color: var(--gold);
+    box-shadow: 0 14px 30px rgba(0,0,0,0.4);
+  }
+  .modeCover{
+    position:relative;
+    height:150px;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    background:#0F141C;
+  }
+  .modeCover .modeCoverImage{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center;
+    display:block;
+    transform:scale(1.01);
+    transition:transform .25s ease, filter .25s ease;
+  }
+  .modeCard:hover .modeCoverImage, .modeCard:focus-visible .modeCoverImage{
+    transform:scale(1.055);
+    filter:saturate(1.05) brightness(1.04);
+  }
+  .modeCover::before{
+    content:"";
+    position:absolute; inset:0; z-index:1;
+    background:linear-gradient(180deg, rgba(8,12,18,.15) 0%, rgba(8,12,18,.28) 45%, rgba(8,12,18,.88) 100%);
+  }
+  .modeCover::after{
+    content:"";
+    position:absolute; inset:0; z-index:1;
+    background:radial-gradient(circle at 50% 35%, rgba(224,193,112,.12), transparent 55%);
+    pointer-events:none;
+  }
+  .modeBadge{
+    position:absolute; top:10px; left:10px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+    color: var(--gold-soft);
+    background: rgba(0,0,0,0.35);
+    border:1px solid rgba(224,193,112,0.35);
+    border-radius:20px;
+    padding:3px 9px;
+    z-index:1;
+  }
+  .modeCardBody{ padding:14px 16px 16px; text-align:left; }
+  .modeCardBody h3{
+    font-family: Georgia, serif; font-weight:700; font-size:17px;
+    color: var(--tile); margin:0 0 6px;
+  }
+  .modeCardBody p{
+    font-size:12.5px; color: var(--muted); line-height:1.55; margin:0 0 14px;
+    min-height:47px;
+  }
+  .modePlay{
+    display:inline-flex; align-items:center; gap:5px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size:12px; font-weight:700; color: var(--gold);
+    transition: gap 0.15s ease;
+  }
+  .modeCard:hover .modePlay{ gap:9px; }
+
+  .backRow{ margin-bottom:16px; }
+  .backLink{
+    all:unset; cursor:pointer;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size:13.5px; font-weight:700;
+    letter-spacing:.02em;
+    color: var(--gold-soft);
+    background: var(--bg-deep);
+    border:1.5px solid var(--gold);
+    border-radius:20px;
+    padding:7px 16px;
+    display:inline-flex; align-items:center; gap:6px;
+    transition: all 0.15s ease;
+  }
+  .backLink:hover{
+    background: var(--gold);
+    color: var(--tile-ink);
+    transform: translateX(-2px);
+  }
+
+  .hidden{ display:none !important; }
+
+
+  /* Chain */
+  .chainScroll{
+    display:flex;
+    gap:0;
+    overflow-x:auto;
+    padding:8px 4px 18px;
+    margin-bottom:6px;
+    scroll-behavior:smooth;
+  }
+  .chainScroll::-webkit-scrollbar{ height:6px; }
+  .chainScroll::-webkit-scrollbar-thumb{ background: var(--line); border-radius:4px; }
+
+  .tile{
+    flex:0 0 auto;
+    display:flex;
+    background: var(--tile);
+    color: var(--tile-ink);
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+    margin-right:-10px;
+    animation: dealIn 0.35s ease-out;
+    border:1px solid rgba(0,0,0,0.15);
+  }
+  @keyframes dealIn{
+    from{ transform: translateX(24px) rotate(-4deg); opacity:0; }
+    to{ transform: translateX(0) rotate(0); opacity:1; }
+  }
+  .tile .wordCol{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:8px 10px 8px 16px;
+    gap:2px;
+  }
+  .tile .word{
+    font-family: Georgia, serif;
+    font-weight:700;
+    font-size:16px;
+    white-space:nowrap;
+    line-height:1.2;
+  }
+  .tile .gloss{
+    font-family: "Noto Sans Thai UI", "Leelawadee UI", "Sarabun", sans-serif;
+    font-size:12px;
+    color:#6b5d47;
+    white-space:nowrap;
+    line-height:1.2;
+  }
+  .tile .gloss.glossLoading{
+    opacity:0.5;
+  }
+  .tile .word .hl{
+    color: var(--coral);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+  }
+  .tile .divider{
+    width:2px;
+    background: repeating-linear-gradient(180deg, var(--tile-ink) 0 4px, transparent 4px 8px);
+    opacity:0.25;
+    margin:8px 0;
+  }
+  .tile .pipLetter{
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-weight:700;
+    font-size:18px;
+    color: var(--gold-soft);
+    background: var(--tile-ink);
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    text-transform:uppercase;
+  }
+  .tile.start .pipLetter{ background: var(--tile-ink); }
+
+  .chainHint{
+    font-size:12px; color: var(--muted); margin: 0 0 22px 4px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+
+  /* Input row */
+  .inputRow{
+    display:flex;
+    align-items:stretch;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .reqBadge{
+    flex:0 0 auto;
+    min-width:58px;
+    background: var(--tile-ink);
+    border:1.5px solid var(--gold);
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size:24px; font-weight:700;
+    color: var(--gold-soft);
+    text-transform:uppercase;
+  }
+  input#wordInput{
+    flex:1;
+    background: var(--bg-deep);
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    color: var(--tile);
+    font-size:18px;
+    padding:0 16px;
+    font-family: Georgia, serif;
+    outline:none;
+    transition: border-color 0.2s;
+  }
+  input#wordInput:focus{ border-color: var(--gold); }
+  input#wordInput::placeholder{ color: var(--muted); font-family: -apple-system, sans-serif; font-size:14px;}
+
+  .btn{
+    border:none; border-radius:10px; cursor:pointer;
+    font-weight:600; font-size:15px;
+    padding:0 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai UI", sans-serif;
+    transition: transform 0.08s ease, opacity 0.2s;
+  }
+  .btn:active{ transform: scale(0.97); }
+  .btn.primary{ background: var(--gold); color: var(--tile-ink); }
+  .btn.primary:hover{ background: var(--gold-soft); }
+  .btn.ghost{
+    background: transparent; color: var(--muted);
+    border:1px solid var(--line); font-size:13px; padding:8px 14px;
+  }
+  .btn.ghost:hover{ color: var(--tile); border-color: var(--muted); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .actionsRow{ display:flex; justify-content:flex-end; align-items:center; margin-bottom:8px;}
+
+  .feedback{
+    min-height:22px;
+    font-size:13px;
+    margin: 4px 0 18px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+  .feedback.ok{ color: var(--green); }
+  .feedback.err{ color: var(--coral); }
+  .feedback.info{ color: var(--muted); }
+
+  /* Game over */
+  .overlay{
+    position:fixed; inset:0; background: rgba(15,20,28,0.88);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px; z-index:10;
+  }
+  .overlay.hidden{ display:none; }
+  .card{
+    background: var(--tile); color: var(--tile-ink);
+    border-radius:16px; padding:32px 28px; max-width:380px; width:100%;
+    text-align:center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .card h2{
+    font-family: Georgia, serif; font-size:26px; margin:0 0 6px;
+  }
+  .card p{ color:#5a4f40; font-size:14px; margin:0 0 18px; line-height:1.6;}
+  .card .bigScore{
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size:44px; font-weight:700; margin:8px 0 4px;
+  }
+  .card .bestNote{ font-size:12px; color:var(--gold); margin-bottom:20px; font-family: ui-monospace, monospace;}
+
+  details{ margin-top:26px; }
+  summary{
+    cursor:pointer; color: var(--muted); font-size:13px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+  .howto{
+    margin-top:12px; font-size:13.5px; line-height:1.8; color: var(--muted);
+    background: var(--bg-deep); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px;
+  }
+  .howto b{ color: var(--tile); }
+
+  @media (max-width:480px){
+    h1{ font-size:26px; }
+    .board{ flex-wrap:wrap; gap:14px; }
+  }
+  /* Game feel upgrades */
+  .board{position:relative; overflow:hidden;}
+  .stat .value.comboHot{color:#FFCF5C; text-shadow:0 0 18px rgba(255,207,92,.35);}
+  .levelPill{margin-left:auto; display:flex; align-items:center; gap:8px; font-family:ui-monospace,monospace; font-size:11px; color:var(--gold-soft);}
+  .levelPill b{font-size:16px; color:var(--tile);}
+  .xpTrack{position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(255,255,255,.06);}
+  .xpFill{height:100%; width:0%; background:linear-gradient(90deg,var(--gold),#fff0a8); transition:width .35s ease;}
+  .mission{display:flex; align-items:center; justify-content:space-between; gap:12px; background:linear-gradient(135deg,rgba(201,162,39,.12),rgba(76,139,107,.08)); border:1px solid rgba(224,193,112,.22); border-radius:12px; padding:10px 13px; margin:-8px 0 14px;}
+  .missionText{font-size:12px; color:var(--muted); line-height:1.4;}
+  .missionText b{color:var(--tile);}
+  .missionProgress{font-family:ui-monospace,monospace; font-size:12px; color:var(--gold-soft); white-space:nowrap;}
+  .comboBanner{min-height:26px; text-align:center; font-family:ui-monospace,monospace; font-weight:800; font-size:15px; color:var(--gold-soft); opacity:0; transform:translateY(5px); transition:.18s ease;}
+  .comboBanner.show{opacity:1; transform:translateY(0);}
+  .comboBanner.pop{animation:comboPop .45s ease;}
+  @keyframes comboPop{0%{transform:scale(.8);opacity:.2}45%{transform:scale(1.18);opacity:1}100%{transform:scale(1);opacity:1}}
+  .timerTrack{position:relative;}
+  .timerText{position:absolute; right:8px; top:50%; transform:translateY(-50%); font:700 10px ui-monospace,monospace; color:var(--tile); mix-blend-mode:screen; pointer-events:none;}
+  .timerTrack.danger{animation:timerPulse .7s ease-in-out infinite;}
+  @keyframes timerPulse{50%{filter:brightness(1.35)}}
+  .tile.newBest{animation:dealIn .35s ease-out, tileGlow .7s ease-out;}
+  @keyframes tileGlow{0%{box-shadow:0 0 0 rgba(255,207,92,0)}35%{box-shadow:0 0 28px rgba(255,207,92,.55)}100%{box-shadow:0 6px 14px rgba(0,0,0,.35)}}
+  .streakFire{font-size:14px; margin-left:3px;}
+  .resultStats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 18px;}
+  .resultStat{background:rgba(36,28,20,.07);border-radius:10px;padding:9px 6px;}
+  .resultStat b{display:block;font:700 18px ui-monospace,monospace;}
+  .resultStat span{font-size:10px;color:#756858;}
+  .card .bigScore{line-height:1;}
+  @media(max-width:480px){.levelPill{width:100%;justify-content:flex-end;margin-top:-8px}.board{padding-bottom:18px}.mission{align-items:flex-start}.resultStats{gap:5px}}
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="data/supabase-config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Word Chain · Domino Mode</p>
+  <h1>โซ่คำภาษาอังกฤษ</h1>
+  <p class="sub">ต่อคำจากตัวอักษรสุดท้ายของคำก่อนหน้า เหมือนต่อโดมิโน่ — ยิ่งคำยาว ยิ่งได้แต้มเยอะ</p>
+
+  <!-- ---------- Play type select screen ---------- -->
+  <div id="playTypeSelectScreen">
+    <div class="modeIntro">
+      <h2>เลือกวิธีการเล่น</h2>
+      <p>เลือกได้ว่าจะเล่นคนเดียว หรือเล่นออนไลน์กับเพื่อน</p>
+    </div>
+    <div class="playTypeCards">
+      <button class="playTypeCard" id="singlePlayerBtn" type="button">
+        <div class="playTypeIcon">🎮</div>
+        <h3>Single Player</h3>
+        <p>เล่นคนเดียว แข่งขันกับตัวเอง และทำคะแนนให้ได้สูงที่สุด</p>
+        <span class="playTypeAction">เลือกโหมดเล่นคนเดียว →</span>
+      </button>
+      <button class="playTypeCard" id="multiplayerBtn" type="button">
+        <div class="playTypeIcon">👥</div>
+        <h3>Multiplayer</h3>
+        <p>สร้างห้องหรือเข้าร่วมห้อง เพื่อเล่น Word Chain แบบออนไลน์กับเพื่อน</p>
+        <span class="playTypeAction">เล่นกับเพื่อน →</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ---------- Multiplayer room screen ---------- -->
+  <div id="multiplayerScreen" class="hidden">
+    <div class="modeIntro"><h2>เล่นกับเพื่อน</h2><p>สร้างห้องหรือใส่รหัสห้องเพื่อเข้าร่วม</p></div>
+    <div class="backRow"><button class="backLink" id="backFromMultiplayerBtn" type="button">← กลับไปเลือกวิธีการเล่น</button></div>
+    <div id="mpHomePanel" class="mpGrid">
+      <div class="mpPanel">
+        <h3>สร้างห้องใหม่</h3><p class="mpNote">ตั้งชื่อผู้เล่น แล้วสร้างรหัสห้องสำหรับชวนเพื่อน</p>
+        <div class="mpField"><label for="hostName">ชื่อผู้เล่น</label><input id="hostName" maxlength="18" placeholder="เช่น James" autocomplete="nickname"></div>
+        <button class="btn primary" id="createRoomBtn" type="button">＋ สร้างห้อง</button>
+      </div>
+      <div class="mpPanel">
+        <h3>เข้าร่วมห้อง</h3><p class="mpNote">ใส่รหัสห้องที่เพื่อนส่งให้</p>
+        <div class="mpField"><label for="guestName">ชื่อผู้เล่น</label><input id="guestName" maxlength="18" placeholder="ชื่อของคุณ" autocomplete="nickname"></div>
+        <div class="mpField"><label for="joinRoomCode">รหัสห้อง</label><input id="joinRoomCode" maxlength="6" placeholder="ABC123" autocomplete="off" style="text-transform:uppercase"></div>
+        <button class="btn primary" id="joinRoomBtn" type="button">เข้าร่วมห้อง →</button>
+      </div>
+    </div>
+    <div id="mpLobbyPanel" class="mpPanel hidden">
+      <h3 id="lobbyTitle">ห้องรอผู้เล่น</h3><p class="mpNote">ส่งรหัสห้องให้เพื่อนเพื่อให้เข้ามาร่วมเล่น</p>
+      <div class="roomCode" id="lobbyRoomCode">------</div>
+      <div class="mpActions"><button class="btn ghost" id="copyInviteBtn" type="button">คัดลอกลิงก์เชิญ</button><button class="btn ghost" id="leaveRoomBtn" type="button">ออกจากห้อง</button></div>
+      <h4 style="margin-top:20px">ผู้เล่นในห้อง</h4><div id="lobbyPlayers"></div>
+      <p id="lobbyStatus" class="mpNote" aria-live="polite"></p>
+      <div class="mpActions"><button class="btn primary" id="readyBtn" type="button">✓ พร้อมแล้ว</button><button class="btn primary" id="startRoomBtn" type="button">เริ่มเกม</button></div>
+      <p class="mpNote" style="margin-top:12px">ห้องนี้เชื่อมต่อ Supabase Realtime แล้วเมื่อใส่ค่าคอนฟิกและสร้างตารางตาม supabase-schema.sql · ระบบผลัดกันเล่น/คะแนนออนไลน์จะต่อในขั้นถัดไป</p>
+    </div>
+    <div class="feedback info" id="mpFeedback" role="status">เลือกสร้างห้องหรือเข้าร่วมห้อง</div>
+  </div>
+
+  <!-- ---------- Single player mode select screen ---------- -->
+  <div id="modeSelectScreen" class="hidden">
+    <div class="modeIntro">
+      <h2>เลือกโหมดที่จะเล่น</h2>
+      <p>เลือกได้ 1 โหมด แล้วเริ่มต่อคำกันเลย — เปลี่ยนโหมดทีหลังได้ตลอดเวลา</p>
+    </div>
+    <div class="backRow">
+      <button class="backLink" id="backToPlayTypeBtn" type="button">← กลับไปเลือกวิธีการเล่น</button>
+    </div>
+    <div class="modeCards">
+      <button class="modeCard" data-mode="domino">
+        <div class="modeCover cover-domino">
+          <span class="modeBadge">โหมด 1</span>
+          <img class="modeCoverImage" src="data:image/webp;base64,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" alt="ภาพโหมดต่อคำ (โดมิโน่)">
+        </div>
+        <div class="modeCardBody">
+          <h3>ต่อคำ (โดมิโน่)</h3>
+          <p>ต่อคำจากตัวอักษรสุดท้ายของคำก่อนหน้า เหมือนต่อโดมิโน่ ยิ่งคำยาวยิ่งได้แต้มเยอะ</p>
+          <span class="modePlay">เล่นโหมดนี้ →</span>
+        </div>
+      </button>
+      <button class="modeCard" data-mode="contains">
+        <div class="modeCover cover-contains">
+          <span class="modeBadge">โหมด 2</span>
+          <img class="modeCoverImage" src="data:image/webp;base64,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" alt="ภาพโหมดมีตัวอักษรนี้">
+        </div>
+        <div class="modeCardBody">
+          <h3>มีตัวอักษรนี้</h3>
+          <p>หาคำที่มีตัวอักษรที่กำหนดซ่อนอยู่ในคำ (ห้ามอยู่แค่ตัวหน้าสุดของคำ)</p>
+          <span class="modePlay">เล่นโหมดนี้ →</span>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- ---------- Game screen ---------- -->
+  <div id="gameScreen" class="hidden">
+    <div class="backRow">
+      <button class="backLink" id="backToPlayTypeFromGameBtn">← กลับไปเลือกวิธีการเล่น</button>
+    </div>
+
+    <div class="board">
+      <div class="stat" id="scoreStat">
+        <div class="label">Score</div>
+        <div class="value" id="scoreVal">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Streak</div>
+        <div class="value" id="streakVal">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">Best</div>
+        <div class="value" id="bestVal">–</div>
+      </div>
+      <div class="levelPill"><span>LEVEL</span><b id="levelVal">1</b></div>
+      <div class="xpTrack"><div class="xpFill" id="xpFill"></div></div>
+    </div>
+
+    <div class="mission" id="mission">
+      <div class="missionText">🎯 <b id="missionTitle">ภารกิจ</b><br><span id="missionDesc">ทำให้สำเร็จเพื่อรับโบนัส</span></div>
+      <div class="missionProgress" id="missionProgress">0 / 3</div>
+    </div>
+    <div class="comboBanner" id="comboBanner" aria-live="polite"></div>
+    <div class="timerTrack" id="timerTrack"><div class="timerFill" id="timerFill"></div><span class="timerText" id="timerText">20.0s</span></div>
+
+    <div class="chainScroll" id="chainScroll"></div>
+    <p class="chainHint" id="chainHint">← เลื่อนดูโซ่คำทั้งหมด · ต้องขึ้นต้นด้วยตัวที่ไฮไลต์สีทอง</p>
+
+    <div class="inputRow">
+      <div class="reqBadge" id="reqBadge">–</div>
+      <input id="wordInput" type="text" placeholder="พิมพ์คำที่ขึ้นต้นด้วยตัวอักษรนี้แล้วกด Enter" autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="submitBtn">ต่อคำ</button>
+    </div>
+
+    <div class="feedback info" id="feedback">พิมพ์คำแรกของคุณเพื่อเริ่มโซ่</div>
+
+    <div class="actionsRow">
+      <button class="btn ghost" id="restartBtn">↻ เริ่มใหม่ทั้งหมด</button>
+    </div>
+
+    <details>
+      <summary>วิธีเล่น</summary>
+      <div class="howto">
+        <b>โหมดต่อคำ (โดมิโน่):</b><br>
+        <b>1.</b> เกมจะโยนคำเริ่มต้นให้ 1 คำ<br>
+        <b>2.</b> คุณต้องพิมพ์คำภาษาอังกฤษที่ <b>ขึ้นต้น</b>ด้วยตัวอักษรตัวสุดท้ายของคำก่อนหน้า (เช่น cat → tiger → river)<br><br>
+        <b>โหมดมีตัวอักษรนี้:</b><br>
+        <b>1.</b> เกมจะสุ่มตัวอักษร 1 ตัวให้<br>
+        <b>2.</b> คุณพิมพ์คำภาษาอังกฤษอะไรก็ได้ที่ <b>มีตัวอักษรนั้นอยู่ในคำ</b> แต่ <b>ห้ามอยู่แค่ตัวหน้าสุดของคำ</b> (เช่น ได้ตัว "Z" พิมพ์ "zebra" ไม่ได้เพราะ Z อยู่แค่ตัวแรก แต่พิมพ์ "buzz" หรือ "zigzag" ได้เพราะมี Z อยู่ตำแหน่งอื่นด้วย)<br>
+        <b>3.</b> ตอบถูกแล้วเกมจะสุ่มตัวอักษรใหม่ให้ทันที (ไม่ซ้ำกับตัวอักษรในคำที่เพิ่งตอบ)<br><br>
+        <b>กติกาทั่วไป (ทั้งสองโหมด):</b><br>
+        <b>4.</b> ห้ามใช้คำซ้ำ ต้องเป็นคำจริงที่มีในพจนานุกรม<br>
+        <b>5.</b> พิมพ์ผิดหรือตอบผิดได้ไม่จำกัดจำนวนครั้ง ลองใหม่ได้เรื่อยๆ โดยไม่เสียคะแนน แต่เวลายังเดินอยู่<br>
+        <b>6.</b> มีเวลาจำกัดต่อคำ — ถ้าเวลาหมดเมื่อไหร่ ถือว่า <b>จบตานั้นทันที</b><br>
+        <b>7.</b> ทุกคำที่ต่อถูก จะมีคำแปลภาษาไทยขึ้นใต้คำนั้นให้อัตโนมัติ (คำทั่วไปแปลจากพจนานุกรมในตัว ส่วนคำที่ไม่มีในนั้นจะดึงคำแปลสดจากอินเทอร์เน็ตให้ — ต้องมีการเชื่อมต่อเน็ต)
+      </div>
+    </details>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="card">
+    <h2>จบเกม!</h2>
+    <p>โซ่คำของคุณยาว <span id="finalLen">0</span> คำ</p>
+    <div class="bigScore" id="finalScore">0</div>
+    <div class="resultStats">
+      <div class="resultStat"><b id="finalBestStreak">0</b><span>BEST COMBO</span></div>
+      <div class="resultStat"><b id="finalLevel">1</b><span>LEVEL</span></div>
+      <div class="resultStat"><b id="finalWords">0</b><span>WORDS</span></div>
+    </div>
+    <div class="bestNote" id="bestNote"></div>
+    <button class="btn primary" id="playAgainBtn" style="width:100%;">เล่นอีกครั้ง</button>
+  </div>
+</div>
+
+<script src="data/word-data.js"></script>
+<script src="data/gloss-data.js"></script>
+<script>
+(function(){
+  // ---------- dictionary data ----------
+  // Validation and starter-word data are loaded from data/word-data.js.
+    // ---------- dictionary data ----------
+  // Kept outside the HTML so the game logic/UI file stays small and maintainable.
+  // data/word-data.js provides WORD_CSV + STARTER_CSV.
+  // The data files are loaded before this script. Keep the initialization
+  // defensive so a missing/blocked data file does not stop the mode buttons
+  // from receiving their click handlers.
+  const WORD_BANK = (typeof WORD_CSV === "string" ? WORD_CSV : "").split(",").filter(Boolean);
+  const WORD_SET = new Set(WORD_BANK);
+  const STARTER_POOL = (typeof STARTER_CSV === "string" ? STARTER_CSV : "").split(",").filter(Boolean);
+  const DATA_READY = WORD_BANK.length > 0 && STARTER_POOL.length > 0;
+
+  // ---------- lightweight lemmatizer ----------
+  // The bundled dictionary lists root/base words only. Since plurals, past
+  // tense, and -ing forms ("cats", "played", "running") are real English
+  // words too, we try stripping common suffixes and check the base form.
+  function lemmaCandidates(word){
+    const c = [];
+    const vowels = "aeiou";
+    const isConsonant = ch => ch && !vowels.includes(ch);
+
+    if(word.endsWith("ies") && word.length > 4) c.push(word.slice(0,-3)+"y");
+    if(word.endsWith("es")) { c.push(word.slice(0,-2)); c.push(word.slice(0,-1)); }
+    if(word.endsWith("s") && word.length > 3) c.push(word.slice(0,-1));
+
+    if(word.endsWith("ied") && word.length > 4) c.push(word.slice(0,-3)+"y");
+    if(word.endsWith("ed")){
+      c.push(word.slice(0,-2));
+      c.push(word.slice(0,-1));
+      const base = word.slice(0,-2);
+      if(base.length >= 2 && base.slice(-1) === base.slice(-2,-1) && isConsonant(base.slice(-1))){
+        c.push(base.slice(0,-1));
+      }
+    }
+
+    if(word.endsWith("ying") && word.length > 5) c.push(word.slice(0,-4)+"ie");
+    if(word.endsWith("ing")){
+      c.push(word.slice(0,-3));
+      c.push(word.slice(0,-3)+"e");
+      const base = word.slice(0,-3);
+      if(base.length >= 2 && base.slice(-1) === base.slice(-2,-1) && isConsonant(base.slice(-1))){
+        c.push(base.slice(0,-1));
+      }
+    }
+
+    if(word.endsWith("ier") && word.length > 4) c.push(word.slice(0,-3)+"y");
+    if(word.endsWith("iest") && word.length > 5) c.push(word.slice(0,-4)+"y");
+    if(word.endsWith("er")) c.push(word.slice(0,-2));
+    if(word.endsWith("est")) c.push(word.slice(0,-3));
+
+    return c.filter(w => w.length >= 2);
+  }
+
+  // ---------- state ----------
+  let chain = [];
+  let usedWords = new Set();
+  let requiredLetter = "";
+  let score = 0;
+  let streak = 0;
+  let bestStreak = 0;
+  let level = 1;
+  let xp = 0;
+  let bestScore = null;
+  let missionTarget = 3;
+  let missionProgress = 0;
+  let missionType = 'streak';
+  let missionDone = false;
+  let timeLeft = 20;
+  const TURN_TIME = 20;
+  let timerHandle = null;
+  let gameOver = false;
+  let gameMode = "domino"; // "domino" | "contains"
+
+  // ---------- dom refs ----------
+  const scoreVal = document.getElementById('scoreVal');
+  const scoreStat = document.getElementById('scoreStat');
+  const streakVal = document.getElementById('streakVal');
+  const bestVal = document.getElementById('bestVal');
+  const levelVal = document.getElementById('levelVal');
+  const xpFill = document.getElementById('xpFill');
+  const missionTitle = document.getElementById('missionTitle');
+  const missionDesc = document.getElementById('missionDesc');
+  const missionProgressEl = document.getElementById('missionProgress');
+  const comboBanner = document.getElementById('comboBanner');
+  const timerTrack = document.getElementById('timerTrack');
+  const timerText = document.getElementById('timerText');
+  const timerFill = document.getElementById('timerFill');
+  const chainScroll = document.getElementById('chainScroll');
+  const chainHint = document.getElementById('chainHint');
+  const playTypeSelectScreen = document.getElementById('playTypeSelectScreen');
+  const singlePlayerBtn = document.getElementById('singlePlayerBtn');
+  const multiplayerBtn = document.getElementById('multiplayerBtn');
+  const multiplayerScreen = document.getElementById('multiplayerScreen');
+  const modeSelectScreen = document.getElementById('modeSelectScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const modeCards = document.querySelectorAll('.modeCard');
+  const backToPlayTypeBtn = document.getElementById('backToPlayTypeBtn');
+  const backToPlayTypeFromGameBtn = document.getElementById('backToPlayTypeFromGameBtn');
+  const reqBadge = document.getElementById('reqBadge');
+  const wordInput = document.getElementById('wordInput');
+  const submitBtn = document.getElementById('submitBtn');
+  const feedback = document.getElementById('feedback');
+  const restartBtn = document.getElementById('restartBtn');
+  const overlay = document.getElementById('overlay');
+  const finalLen = document.getElementById('finalLen');
+  const finalScore = document.getElementById('finalScore');
+  const finalBestStreak = document.getElementById('finalBestStreak');
+  const finalLevel = document.getElementById('finalLevel');
+  const finalWords = document.getElementById('finalWords');
+  const bestNote = document.getElementById('bestNote');
+  const playAgainBtn = document.getElementById('playAgainBtn');
+
+  // ---------- storage (best score) ----------
+  async function loadBest(){
+    try{
+      const res = await window.storage.get('wordchain-best', false);
+      if(res && res.value != null){
+        bestScore = parseInt(res.value, 10) || 0;
+        bestVal.textContent = bestScore;
+      }
+    }catch(e){ /* no record yet, ignore */ }
+  }
+  async function saveBestIfNeeded(){
+    if(bestScore === null || score > bestScore){
+      bestScore = score;
+      bestVal.textContent = bestScore;
+      try{ await window.storage.set('wordchain-best', String(bestScore), false); }catch(e){}
+    }
+  }
+
+  // ---------- render helpers ----------
+  function renderStats(){
+    scoreVal.textContent = score;
+    streakVal.textContent = streak;
+    levelVal.textContent = level;
+    const xpNeeded = 100 + (level - 1) * 35;
+    xpFill.style.width = Math.min(100, (xp / xpNeeded) * 100) + '%';
+    streakVal.classList.toggle('comboHot', streak >= 3);
+    missionProgressEl.textContent = missionProgress + ' / ' + missionTarget;
+  }
+
+  function updateMission(){
+    const missions = [
+      {type:'streak', title:'รักษาไฟ!', desc:'ตอบถูกติดกันให้ครบ ' + missionTarget + ' คำ'},
+      {type:'long', title:'นักล่าคำยาว', desc:'ส่งคำที่มีอย่างน้อย 7 ตัวอักษร ' + missionTarget + ' ครั้ง'},
+      {type:'words', title:'สปีดรัน', desc:'ตอบให้ถูก ' + missionTarget + ' คำในตานี้'}
+    ];
+    const m = missions.find(x => x.type === missionType) || missions[0];
+    missionTitle.textContent = m.title;
+    missionDesc.textContent = m.desc;
+    missionProgressEl.textContent = missionProgress + ' / ' + missionTarget;
+  }
+
+  function addXP(amount){
+    xp += amount;
+    let xpNeeded = 100 + (level - 1) * 35;
+    while(xp >= xpNeeded){
+      xp -= xpNeeded;
+      level += 1;
+      score += 25;
+      showScorePop(25);
+      comboBanner.textContent = '⬆ LEVEL ' + level + ' — +25 BONUS!';
+      comboBanner.classList.add('show','pop');
+      setTimeout(()=>comboBanner.classList.remove('pop'),500);
+      xpNeeded = 100 + (level - 1) * 35;
+    }
+    renderStats();
+  }
+
+  function advanceMission(raw){
+    if(missionDone) return;
+    if(missionType === 'streak') missionProgress = streak;
+    if(missionType === 'long' && raw.length >= 7) missionProgress += 1;
+    if(missionType === 'words') missionProgress += 1;
+    if(missionProgress >= missionTarget){
+      missionDone = true;
+      const reward = 40 + level * 5;
+      score += reward;
+      addXP(35);
+      comboBanner.textContent = '🎯 MISSION COMPLETE! +' + reward;
+      comboBanner.classList.add('show','pop');
+      showScorePop(reward);
+      setTimeout(()=>comboBanner.classList.remove('pop'),500);
+    }
+    renderStats();
+  }
+
+  function showScorePop(points){
+    const pop = document.createElement('div');
+    pop.className = 'scorePop';
+    pop.textContent = '+' + points;
+    scoreStat.appendChild(pop);
+    pop.addEventListener('animationend', () => pop.remove());
+
+    scoreVal.classList.remove('bump');
+    // force reflow so the class can be re-added even for back-to-back correct answers
+    void scoreVal.offsetWidth;
+    scoreVal.classList.add('bump');
+    setTimeout(() => scoreVal.classList.remove('bump'), 220);
+  }
+
+  function addTile(word, isStart, pip){
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (isStart ? ' start' : '');
+    let wordHtml;
+    let pipLetter;
+    if(gameMode === 'contains'){
+      // Show the full word with every occurrence of the matched letter
+      // highlighted, since (unlike domino mode) the letter can be anywhere.
+      pipLetter = (pip || '').toUpperCase();
+      const target = (pip || '').toLowerCase();
+      wordHtml = word.split('').map((ch, i) => {
+        const cap = i === 0 ? ch.toUpperCase() : ch;
+        return ch.toLowerCase() === target ? `<span class="hl">${cap}</span>` : cap;
+      }).join('');
+    } else {
+      pipLetter = word.slice(-1).toUpperCase();
+      wordHtml = word.slice(0,1).toUpperCase() + word.slice(1,-1);
+    }
+    tile.innerHTML = `<div class="wordCol"><div class="word">${wordHtml}</div><div class="gloss" data-gloss></div></div><div class="divider"></div><div class="pipLetter">${pipLetter}</div>`;
+    chainScroll.appendChild(tile);
+    chainScroll.scrollLeft = chainScroll.scrollWidth;
+    fillTranslation(tile, word);
+    return tile;
+  }
+
+  // ---------- translation (Thai gloss) ----------
+  // Two-tier lookup, used identically for every tile in BOTH game modes:
+  //  1) Curated offline dictionary from data/gloss-data.js.
+  //  2) Live fallback to MyMemory's free translation API for everything else,
+  //     so uncommon words still get a real Thai translation once the page is
+  //     opened somewhere with normal network access (this preview sandbox
+  //     blocks outbound fetch, so only the local dictionary will resolve here).
+  // GLOSS_DICT is provided by data/gloss-data.js.
+  const translationCache = new Map();
+  const translationPending = new Map(); // word -> Promise, so we never fire two lookups for the same word at once
+
+  // Fast, always-available local lookup (curated dictionary + simple lemma matching).
+  function localTranslate(word){
+    let text = (typeof GLOSS_DICT !== "undefined" ? GLOSS_DICT[word] : null) || null;
+    if(!text){
+      for(const cand of lemmaCandidates(word)){
+        if(typeof GLOSS_DICT !== "undefined" && GLOSS_DICT[cand]){ text = GLOSS_DICT[cand]; break; }
+      }
+    }
+    return text;
+  }
+
+  // Live fallback translation via MyMemory's free public API (no key required,
+  // CORS-enabled) for the vast majority of valid words that aren't in the
+  // curated ~400-word dictionary above. This only helps once the page is
+  // actually opened somewhere with real network access (e.g. after download,
+  // in a normal browser) — it fails silently and falls back to "-" otherwise.
+  async function apiTranslate(word){
+    try{
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|th`);
+      if(!res.ok) return null;
+      const data = await res.json();
+      let text = data && data.responseData && data.responseData.translatedText;
+      if(!text) return null;
+      text = text.trim();
+      // MyMemory sometimes echoes the English word back (untranslated) or
+      // returns an all-caps placeholder when it has nothing useful — skip those.
+      if(!text || /^[a-z\s\-']+$/i.test(text)) return null;
+      return text;
+    }catch(e){
+      return null; // offline / blocked / rate-limited — fail quietly
+    }
+  }
+
+  // Returns a translation immediately if cached/local, otherwise kicks off an
+  // async API lookup and resolves once it's back (or gives up).
+  async function translateWord(word){
+    if(translationCache.has(word)) return translationCache.get(word);
+    const local = localTranslate(word);
+    if(local){
+      translationCache.set(word, local);
+      return local;
+    }
+    if(translationPending.has(word)) return translationPending.get(word);
+    const promise = apiTranslate(word).then(text => {
+      translationPending.delete(word);
+      translationCache.set(word, text); // cache null too, so we don't retry every tile
+      return text;
+    });
+    translationPending.set(word, promise);
+    return promise;
+  }
+
+  async function fillTranslation(tile, word){
+    const glossEl = tile.querySelector('[data-gloss]');
+    if(!glossEl) return; // tile may have scrolled out / DOM changed, safe no-op
+    const cached = translationCache.get(word);
+    if(cached !== undefined){
+      glossEl.textContent = cached || '—';
+      return;
+    }
+    glossEl.textContent = '…'; // brief loading state while the API call (if any) resolves
+    glossEl.classList.add('glossLoading');
+    const thai = await translateWord(word);
+    // tile might have scrolled out of the DOM (unlikely, but be safe) —
+    // re-query in case the reference is stale after the await.
+    const stillGlossEl = tile.querySelector('[data-gloss]');
+    if(stillGlossEl){
+      stillGlossEl.textContent = thai || '—';
+      stillGlossEl.classList.remove('glossLoading');
+    }
+  }
+
+  function setRequiredLetter(letter){
+    requiredLetter = letter.toLowerCase();
+    reqBadge.textContent = requiredLetter.toUpperCase();
+  }
+
+  let audioCtx = null;
+  function playSuccessSound(){
+    try{
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const now = audioCtx.currentTime;
+      [0,0.07].forEach((d,i)=>{
+        const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = i ? 880 : 660;
+        g.gain.setValueAtTime(0.0001, now+d);
+        g.gain.exponentialRampToValueAtTime(0.055, now+d+0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, now+d+0.11);
+        o.connect(g); g.connect(audioCtx.destination); o.start(now+d); o.stop(now+d+0.12);
+      });
+    }catch(e){}
+  }
+
+  function setFeedback(msg, type){
+    feedback.textContent = msg;
+    feedback.className = 'feedback ' + (type || 'info');
+  }
+
+  // ---------- timer ----------
+  function startTimer(){
+    clearInterval(timerHandle);
+    timeLeft = Math.min(TURN_TIME, 20 + Math.min(5, level - 1) * 0.4);
+    updateTimerBar();
+    timerHandle = setInterval(()=>{
+      timeLeft -= 0.1;
+      if(timeLeft <= 0){
+        timeLeft = 0;
+        updateTimerBar();
+        clearInterval(timerHandle);
+        handleTimeout();
+        return;
+      }
+      updateTimerBar();
+    }, 100);
+  }
+  function updateTimerBar(){
+    const pct = Math.min(100, Math.max(0, (timeLeft/TURN_TIME)*100));
+    timerFill.style.width = pct + '%';
+    timerText.textContent = timeLeft.toFixed(1) + 's';
+    timerTrack.classList.toggle('danger', pct < 25);
+    if(pct < 25){
+      timerFill.style.background = 'var(--coral)';
+    } else if(pct < 55){
+      timerFill.style.background = 'linear-gradient(90deg, var(--gold), var(--coral))';
+    } else {
+      timerFill.style.background = 'linear-gradient(90deg, var(--green), var(--gold))';
+    }
+  }
+  function stopTimer(){ clearInterval(timerHandle); }
+
+  // ---------- game flow ----------
+  function pickStartWord(){
+    const w = STARTER_POOL[Math.floor(Math.random()*STARTER_POOL.length)];
+    return w;
+  }
+
+  function beginChain(word, isStart){
+    chain.push(word);
+    usedWords.add(word);
+    addTile(word, isStart);
+    setRequiredLetter(word.slice(-1));
+    startTimer();
+  }
+
+  function randomLetter(avoidWord){
+    const avoid = avoidWord ? new Set(avoidWord.toLowerCase().split('')) : new Set();
+    let pool = "abcdefghijklmnopqrstuvwxyz".split('').filter(l => !avoid.has(l));
+    if(pool.length === 0) pool = "abcdefghijklmnopqrstuvwxyz".split(''); // safety fallback
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  function startContainsRound(avoidWord){
+    setRequiredLetter(randomLetter(avoidWord));
+    startTimer();
+  }
+
+  function handleTimeout(){
+    if(gameOver) return;
+    streak = 0;
+    renderStats();
+    setFeedback('หมดเวลา! จบตานี้', 'err');
+    endGame();
+  }
+
+  function endGame(){
+    gameOver = true;
+    stopTimer();
+    wordInput.disabled = true;
+    submitBtn.disabled = true;
+    finalLen.textContent = chain.length;
+    finalScore.textContent = score;
+    finalBestStreak.textContent = bestStreak;
+    finalLevel.textContent = level;
+    finalWords.textContent = chain.length;
+    saveBestIfNeeded().then(()=>{
+      bestNote.textContent = (score >= (bestScore||0)) ? '🏆 สถิติใหม่!' : `สถิติสูงสุด: ${bestScore}`;
+      overlay.classList.remove('hidden');
+    });
+  }
+
+  // ---------- validation ----------
+  // Source of truth is the bundled dictionary (fast, always available, and
+  // the only thing that actually works — this preview sandbox blocks all
+  // outbound network calls, so a live-lookup fallback would never fire).
+  function isRealWord(word){
+    if(WORD_SET.has(word)) return true;
+    // try common inflected forms (plurals, -ed, -ing, -er/-est) against the base dictionary
+    for(const cand of lemmaCandidates(word)){
+      if(WORD_SET.has(cand)) return true;
+    }
+    return false;
+  }
+
+  function handleSubmit(){
+    if(gameOver) return;
+    const raw = wordInput.value.trim().toLowerCase();
+    if(!raw) return;
+
+    if(!/^[a-z]+$/.test(raw)){
+      setFeedback('ใช้ตัวอักษร A-Z เท่านั้น', 'err');
+      return;
+    }
+    if(raw.length < 3){
+      setFeedback('คำต้องมีอย่างน้อย 3 ตัวอักษร', 'err');
+      return;
+    }
+    if(gameMode === 'domino'){
+      if(chain.length > 0 && raw[0] !== requiredLetter){
+        setFeedback(`ต้องขึ้นต้นด้วยตัว "${requiredLetter.toUpperCase()}"`, 'err');
+        return;
+      }
+    } else {
+      if(!raw.slice(1).includes(requiredLetter)){
+        setFeedback(`คำต้องมีตัวอักษร "${requiredLetter.toUpperCase()}" อยู่ในคำ (แต่ห้ามอยู่แค่ตัวหน้าสุด เช่น "zebra" ใช้กับตัว Z ไม่ได้ ต้องมี Z ที่ตำแหน่งอื่นด้วย)`, 'err');
+        return;
+      }
+    }
+    if(usedWords.has(raw)){
+      setFeedback('คำนี้ถูกใช้ไปแล้วในโซ่นี้', 'err');
+      return;
+    }
+
+    const ok = isRealWord(raw);
+
+    if(!ok){
+      setFeedback(`"${raw}" ไม่พบในพจนานุกรม ลองคำอื่นได้เลย (พิมพ์ผิดไม่เสียคะแนน แต่เวลายังเดินอยู่!)`, 'err');
+      wordInput.value = '';
+      wordInput.focus();
+      return;
+    }
+
+    // success
+    stopTimer();
+    playSuccessSound();
+    const lengthBonus = Math.max(0, raw.length - 3) * 3;
+    const speedBonus = Math.max(0, Math.ceil(timeLeft / 2));
+    streak += 1;
+    bestStreak = Math.max(bestStreak, streak);
+    const multiplier = Math.min(5, 1 + Math.floor(streak / 3));
+    const points = (10 + lengthBonus + speedBonus) * multiplier;
+    score += points;
+    addXP(10 + Math.min(12, raw.length));
+    advanceMission(raw);
+    usedWords.add(raw);
+    chain.push(raw);
+    if(gameMode === 'domino'){
+      addTile(raw, false);
+      setRequiredLetter(raw.slice(-1));
+    } else {
+      addTile(raw, false, requiredLetter); // highlight the letter that was just satisfied
+      setRequiredLetter(randomLetter(raw));
+    }
+    renderStats();
+    showScorePop(points);
+    comboBanner.textContent = multiplier > 1 ? `🔥 COMBO ×${multiplier}   +${points}` : `+${points}   ⚡เร็ว!`;
+    comboBanner.classList.add('show','pop');
+    setTimeout(()=>comboBanner.classList.remove('pop'),500);
+    setFeedback(`เยี่ยม! +${points} แต้ม${lengthBonus ? ` · คำยาว +${lengthBonus}` : ''}`, 'ok');
+    wordInput.value = '';
+    if(!gameOver) startTimer();
+  }
+
+  function pickStartWordAvoiding(){
+    let w;
+    let tries = 0;
+    do{
+      w = STARTER_POOL[Math.floor(Math.random()*STARTER_POOL.length)];
+      tries++;
+    } while(usedWords.has(w) && tries < 30);
+    return w;
+  }
+
+  function resetGame(){
+    if(!DATA_READY){
+      setFeedback('โหลดฐานคำศัพท์ไม่สำเร็จ กรุณาใช้ไฟล์ทั้งชุดโดยเก็บโฟลเดอร์ data ไว้ข้างไฟล์เกม', 'err');
+      return;
+    }
+    stopTimer();
+    chain = [];
+    usedWords = new Set();
+    score = 0;
+    streak = 0;
+    bestStreak = 0;
+    level = 1;
+    xp = 0;
+    missionProgress = 0;
+    missionDone = false;
+    missionType = ['streak','long','words'][Math.floor(Math.random()*3)];
+    missionTarget = missionType === 'long' ? 2 : 3;
+    gameOver = false;
+    chainScroll.innerHTML = '';
+    wordInput.disabled = false;
+    submitBtn.disabled = false;
+    wordInput.value = '';
+    overlay.classList.add('hidden');
+    updateMission();
+    renderStats();
+    comboBanner.textContent = '';
+    comboBanner.classList.remove('show','pop');
+    if(gameMode === 'domino'){
+      const w = pickStartWordAvoiding();
+      beginChain(w, true);
+      chainHint.textContent = '← เลื่อนดูโซ่คำทั้งหมด · ต้องขึ้นต้นด้วยตัวที่ไฮไลต์สีทอง';
+      wordInput.placeholder = 'พิมพ์คำที่ขึ้นต้นด้วยตัวอักษรนี้แล้วกด Enter';
+      setFeedback('พิมพ์คำที่ขึ้นต้นด้วยตัวไฮไลต์ แล้วกด Enter', 'info');
+    } else {
+      startContainsRound();
+      chainHint.textContent = '← เลื่อนดูคำทั้งหมด · คำต้องมีตัวที่ไฮไลต์สีทอง (แต่ห้ามอยู่แค่ตัวหน้าสุดของคำ)';
+      wordInput.placeholder = 'พิมพ์คำที่มีตัวอักษรนี้ (ห้ามอยู่แค่ตัวหน้าสุด) แล้วกด Enter';
+      setFeedback('พิมพ์คำที่มีตัวไฮไลต์อยู่ในคำ แล้วกด Enter', 'info');
+    }
+    wordInput.focus();
+  }
+
+  function showSinglePlayerModes(){
+    playTypeSelectScreen.classList.add('hidden');
+    modeSelectScreen.classList.remove('hidden');
+  }
+
+  // ---------- Multiplayer: Supabase Realtime lobby ----------
+  let activeRoomCode = '';
+  let activeRoomId = '';
+  let localPlayerId = '';
+  let roomPlayers = [];
+  let localReady = false;
+  let isRoomHost = false;
+  let roomChannel = null;
+  let supabaseClient = null;
+
+  function supabaseConfigured(){
+    return window.WORD_CHAIN_SUPABASE_URL &&
+      window.WORD_CHAIN_SUPABASE_ANON_KEY &&
+      !window.WORD_CHAIN_SUPABASE_URL.includes('YOUR_PROJECT') &&
+      !window.WORD_CHAIN_SUPABASE_ANON_KEY.includes('YOUR_SUPABASE');
+  }
+
+  function setMpFeedback(message, type='info'){
+    const el=document.getElementById('mpFeedback');
+    el.textContent=message;
+    el.className='feedback '+type;
+  }
+
+  async function ensureSupabase(){
+    if(!supabaseConfigured()){
+      setMpFeedback('ยังไม่ได้ตั้งค่า Supabase: ใส่ URL และ anon/publishable key ใน data/supabase-config.js ก่อน', 'info');
+      return false;
+    }
+    if(!supabaseClient){
+      supabaseClient=window.supabase.createClient(window.WORD_CHAIN_SUPABASE_URL, window.WORD_CHAIN_SUPABASE_ANON_KEY);
+    }
+    const {data,error}=await supabaseClient.auth.getSession();
+    if(error){ setMpFeedback('เชื่อมต่อ Supabase ไม่สำเร็จ: '+error.message,'error'); return false; }
+    if(!data.session){
+      const signed=await supabaseClient.auth.signInAnonymously();
+      if(signed.error){
+        setMpFeedback('เข้าสู่ระบบผู้เล่นอัตโนมัติไม่สำเร็จ: '+signed.error.message,'error');
+        return false;
+      }
+      localPlayerId=signed.data.user.id;
+    }else localPlayerId=data.session.user.id;
+    return true;
+  }
+
+  function makeRoomCode(){
+    const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out=''; for(let i=0;i<6;i++) out+=chars[Math.floor(Math.random()*chars.length)];
+    return out;
+  }
+
+  function showMultiplayer(){
+    playTypeSelectScreen.classList.add('hidden');
+    modeSelectScreen.classList.add('hidden');
+    gameScreen.classList.add('hidden');
+    multiplayerScreen.classList.remove('hidden');
+    document.getElementById('mpHomePanel').classList.remove('hidden');
+    document.getElementById('mpLobbyPanel').classList.add('hidden');
+    setMpFeedback(supabaseConfigured() ? 'พร้อมสร้างห้องหรือเข้าร่วมห้อง' : 'ตั้งค่า Supabase ก่อนใช้งาน Multiplayer จริง');
+  }
+
+  function renderLobby(){
+    document.getElementById('lobbyRoomCode').textContent=activeRoomCode || '------';
+    const list=document.getElementById('lobbyPlayers'); list.innerHTML='';
+    roomPlayers.forEach(player=>{
+      const item=document.createElement('div'); item.className='mpPlayer';
+      const name=document.createElement('span'); name.textContent=player.name+(player.is_host?' (Host)':'');
+      const status=document.createElement('span'); status.textContent=player.ready?'✓ พร้อม':'รออยู่';
+      status.style.color=player.ready?'var(--green)':'var(--muted)';
+      item.append(name,status); list.appendChild(item);
+    });
+    document.getElementById('startRoomBtn').classList.toggle('hidden',!isRoomHost);
+    const everyoneReady=roomPlayers.length>0 && roomPlayers.every(p=>p.ready);
+    document.getElementById('lobbyStatus').textContent=roomPlayers.length+' คนในห้อง'+(everyoneReady?' · ทุกคนพร้อมแล้ว':' · รอผู้เล่นกดพร้อม');
+    document.getElementById('readyBtn').textContent=localReady?'ยกเลิกความพร้อม':'✓ พร้อมแล้ว';
+  }
+
+  async function refreshRoomPlayers(){
+    if(!activeRoomId) return;
+    const {data,error}=await supabaseClient.from('room_players').select('id,player_id,name,ready,is_host,connected,joined_at').eq('room_id',activeRoomId).order('joined_at',{ascending:true});
+    if(error){setMpFeedback('โหลดรายชื่อผู้เล่นไม่สำเร็จ: '+error.message,'error');return;}
+    roomPlayers=data||[];
+    const me=roomPlayers.find(p=>p.player_id===localPlayerId);
+    localReady=!!me?.ready;
+    isRoomHost=!!me?.is_host;
+    renderLobby();
+  }
+
+  async function subscribeRoom(){
+    if(roomChannel) await supabaseClient.removeChannel(roomChannel);
+    roomChannel=supabaseClient.channel('room:'+activeRoomId)
+      .on('postgres_changes',{event:'*',schema:'public',table:'room_players',filter:'room_id=eq.'+activeRoomId},()=>refreshRoomPlayers())
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rooms',filter:'id=eq.'+activeRoomId},payload=>{
+        if(payload.new.status==='playing') startMultiplayerGame();
+      })
+      .subscribe(status=>{
+        if(status==='SUBSCRIBED') refreshRoomPlayers();
+      });
+  }
+
+  async function openLobby(code,name,host){
+    name=(name||'').trim();
+    if(!name){setMpFeedback('กรุณาใส่ชื่อผู้เล่นก่อน','error');return;}
+    if(!(await ensureSupabase())) return;
+    setMpFeedback(host?'กำลังสร้างห้อง...':'กำลังเข้าร่วมห้อง...');
+
+    if(host){
+      let room=null, error=null;
+      for(let attempt=0;attempt<5;attempt++){
+        const candidate=attempt===0?code:makeRoomCode();
+        const result=await supabaseClient.from('rooms').insert({code:candidate,host_id:localPlayerId,status:'lobby',game_mode:'domino'}).select().single();
+        if(!result.error){room=result.data;break;}
+        error=result.error;
+      }
+      if(error || !room){setMpFeedback('สร้างห้องไม่สำเร็จ: '+(error?.message||'unknown error'),'error');return;}
+      activeRoomCode=room.code; activeRoomId=room.id; isRoomHost=true;
+      const ins=await supabaseClient.from('room_players').insert({room_id:room.id,player_id:localPlayerId,name,is_host:true,ready:false}).select().single();
+      if(ins.error){await supabaseClient.from('rooms').delete().eq('id',room.id);setMpFeedback('เพิ่มผู้เล่นไม่สำเร็จ: '+ins.error.message,'error');return;}
+    }else{
+      const result=await supabaseClient.from('rooms').select('id,code,status,host_id').eq('code',code.toUpperCase()).maybeSingle();
+      if(result.error || !result.data){setMpFeedback('ไม่พบห้องนี้ กรุณาตรวจสอบรหัส 6 ตัวอักษร','error');return;}
+      if(result.data.status!=='lobby'){setMpFeedback('ห้องนี้เริ่มเกมไปแล้ว','error');return;}
+      activeRoomCode=result.data.code; activeRoomId=result.data.id; isRoomHost=false;
+      const ins=await supabaseClient.from('room_players').upsert({room_id:activeRoomId,player_id:localPlayerId,name,is_host:false,ready:false},{onConflict:'room_id,player_id'}).select().single();
+      if(ins.error){setMpFeedback('เข้าร่วมห้องไม่สำเร็จ: '+ins.error.message,'error');return;}
+    }
+
+    document.getElementById('mpHomePanel').classList.add('hidden');
+    document.getElementById('mpLobbyPanel').classList.remove('hidden');
+    document.getElementById('lobbyTitle').textContent=host?'สร้างห้องสำเร็จ':'เข้าร่วมห้องแล้ว';
+    const invite=location.href.split('#')[0]+'#room='+activeRoomCode;
+    history.replaceState(null,'','#room='+activeRoomCode);
+    document.getElementById('joinRoomCode').value=activeRoomCode;
+    await subscribeRoom();
+    await refreshRoomPlayers();
+    setMpFeedback(host?'สร้างห้องแล้ว · ส่งลิงก์เชิญให้เพื่อนได้':'เข้าห้องสำเร็จ · รอผู้เล่นคนอื่น');
+  }
+
+  async function leaveRoom(){
+    if(roomChannel) await supabaseClient.removeChannel(roomChannel).catch(()=>{});
+    roomChannel=null;
+    if(activeRoomId && localPlayerId){
+      await supabaseClient.from('room_players').delete().eq('room_id',activeRoomId).eq('player_id',localPlayerId);
+      if(isRoomHost) await supabaseClient.from('rooms').delete().eq('id',activeRoomId);
+    }
+    activeRoomCode=''; activeRoomId=''; roomPlayers=[]; localReady=false; isRoomHost=false;
+    document.getElementById('mpLobbyPanel').classList.add('hidden');
+    document.getElementById('mpHomePanel').classList.remove('hidden');
+    setMpFeedback('ออกจากห้องแล้ว');
+  }
+
+  async function setReady(){
+    if(!activeRoomId || !localPlayerId) return;
+    const next=!localReady;
+    const {error}=await supabaseClient.from('room_players').update({ready:next,connected:true}).eq('room_id',activeRoomId).eq('player_id',localPlayerId);
+    if(error){setMpFeedback('เปลี่ยนสถานะพร้อมไม่สำเร็จ: '+error.message,'error');return;}
+    localReady=next; await refreshRoomPlayers();
+  }
+
+  async function startRoom(){
+    if(!isRoomHost || !activeRoomId) return;
+    const everyoneReady=roomPlayers.length>0 && roomPlayers.every(p=>p.ready);
+    if(roomPlayers.length<2){setMpFeedback('ต้องมีผู้เล่นอย่างน้อย 2 คนก่อนเริ่มเกม','error');return;}
+    if(!everyoneReady){setMpFeedback('ต้องให้ผู้เล่นทุกคนกด “พร้อมแล้ว” ก่อนเริ่มเกม','error');return;}
+    const {error}=await supabaseClient.from('rooms').update({status:'playing'}).eq('id',activeRoomId).eq('host_id',localPlayerId);
+    if(error){setMpFeedback('เริ่มเกมไม่สำเร็จ: '+error.message,'error');return;}
+  }
+
+  function startMultiplayerGame(){
+    // Phase 2 currently opens the existing game screen; shared turn/score state is the next layer.
+    multiplayerScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    gameMode='domino';
+    resetGame();
+    setFeedback('เริ่มเกม Multiplayer แล้ว · ระบบผลัดกันเล่นและคะแนนออนไลน์จะเชื่อมต่อในขั้นถัดไป','info');
+  }
+
+  function selectMode(mode){
+    gameMode = mode;
+    modeSelectScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    resetGame();
+  }
+
+  function goToPlayTypeSelect(){
+    stopTimer();
+    gameOver = true;
+    overlay.classList.add('hidden');
+    gameScreen.classList.add('hidden');
+    multiplayerScreen.classList.add('hidden');
+    modeSelectScreen.classList.add('hidden');
+    playTypeSelectScreen.classList.remove('hidden');
+  }
+
+  // ---------- wire up ----------
+  singlePlayerBtn.addEventListener('click', showSinglePlayerModes);
+  multiplayerBtn.addEventListener('click', showMultiplayer);
+  document.getElementById('backFromMultiplayerBtn').addEventListener('click', goToPlayTypeSelect);
+  document.getElementById('createRoomBtn').addEventListener('click',()=>openLobby(makeRoomCode(),document.getElementById('hostName').value,true));
+  document.getElementById('joinRoomBtn').addEventListener('click',()=>{
+    const code=document.getElementById('joinRoomCode').value.trim().toUpperCase();
+    if(!/^[A-Z0-9]{6}$/.test(code)){setMpFeedback('กรุณากรอกรหัสห้อง 6 ตัวอักษร','error');return;}
+    openLobby(code,document.getElementById('guestName').value,false);
+  });
+  document.getElementById('readyBtn').addEventListener('click',setReady);
+  document.getElementById('leaveRoomBtn').addEventListener('click',leaveRoom);
+  document.getElementById('copyInviteBtn').addEventListener('click',async()=>{
+    const invite=location.href.split('#')[0]+'#room='+activeRoomCode;
+    try{await navigator.clipboard.writeText(invite);setMpFeedback('คัดลอกลิงก์เชิญแล้ว');}
+    catch(e){setMpFeedback('คัดลอกลิงก์นี้ด้วยตนเอง: '+invite);}
+  });
+  document.getElementById('startRoomBtn').addEventListener('click',startRoom);
+
+  submitBtn.addEventListener('click', handleSubmit);
+  wordInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') handleSubmit(); });
+  restartBtn.addEventListener('click', resetGame);
+  playAgainBtn.addEventListener('click', resetGame);
+  backToPlayTypeBtn.addEventListener('click', goToPlayTypeSelect);
+  backToPlayTypeFromGameBtn.addEventListener('click', goToPlayTypeSelect);
+  modeCards.forEach(card => {
+    card.addEventListener('click', () => selectMode(card.dataset.mode));
+  });
+
+  const inviteMatch = location.hash.match(/(?:^#|&)room=([A-Z0-9]{6})/i);
+  if(inviteMatch){ showMultiplayer(); document.getElementById('joinRoomCode').value=inviteMatch[1].toUpperCase(); }
+  loadBest();
+})();
+</script>
+</body>
+</html>
